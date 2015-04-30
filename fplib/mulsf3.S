@@ -80,9 +80,7 @@ ENTRY   __mulsf3
 
 	rcall	_U(__mulsf3x)
 
-  __fp_mergeA;
-  __fp_mergeB;
-
-	__fp_round
+  __fp_mergeX;
+	__fp_round;
 
 ENDFUNC

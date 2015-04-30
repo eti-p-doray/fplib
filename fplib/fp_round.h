@@ -37,20 +37,17 @@
  *  The __fp_round() function rounds an input number. This is an internal
  *  function intended to run after __addsf3x() and like.
  *
- *  flt32_t __fp_round(flt40_t a);
+ *  flt32_t __fp_round(flt40_t x);
  *
  *  Register pressure = 5
  *
  *  \Input - Output
- *  xE  : r25  Exponent<7..1>
+ *  xE  : r25  Sign:Exponent<7..1>
  *  xM0 : r24  Exponent<0>:Mantissa<30..23>
  *  xM1 : r23  Mantissa<22..15>
  *  xM2 : r22  Mantissa<14..7>
  *  xM3 : r27  Mantissa<6..0>:0
  *  aS  : T sign of x
- *
- *  \Clobber
- *
  ********************************************************************************/
 .macro  __fp_round
   lsl xM3;

@@ -53,9 +53,6 @@
  *  aM1 : r23 Mantissa<22..15>
  *  aM2 : r22 Mantissa<14..7>
  *  aM3 : r27 Sign:Mantissa<6..0>
- *
- *  \Clobber
- *
  ******************************************************************************/
 .macro  __fp_splitA
   lsl aM0;
@@ -92,9 +89,6 @@
  *  bM1 : r19 Mantissa<22..15>
  *  bM2 : r18 Mantissa<14..7>
  *  bM3 : r26 Sign:Mantissa<6..0>
- *
- *  \Clobber
- *
  ******************************************************************************/
 .macro  __fp_splitB
   lsl bM0;

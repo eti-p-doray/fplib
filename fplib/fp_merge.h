@@ -32,28 +32,56 @@
 #include "asmdef.h"
 
 /******************************************************************************
+*  The __fp_mergeX() convert an X splflt40_t number to flt40_t
+*
+*  flt40_t __fp_mergeX(splflt40_t a);
+*
+*  Register pressure = 5
+*
+*  \Input
+*  xE  : r25 Exponent<7..0>
+*  xM0 : r24 1:Mantissa<29..23>
+*  xM1 : r23 Mantissa<22..15>
+*  xM2 : r22 Mantissa<14..7>
+*  xM3 : r27 Mantissa<7..0>
+*  xS  : T   Sign
+*
+*  \Output
+*  xE  : r25 Sign:Exponent<7..1>
+*  xM0 : r24 Exponent<0>:Mantissa<29..23>
+*  xM1 : r23 Mantissa<22..15>
+*  xM2 : r22 Mantissa<14..7>
+*  xM3 : r27 Mantissa<6..0>:0
+******************************************************************************/
+.macro  __fp_mergeX
+lsl xM0;
+sbci  xE, -1
+ror xE;
+ror xM0;
+bld xE, 7;
+.endmacro
+
+/******************************************************************************
  *  The __fp_mergeA() convert an A splflt40_t number to flt40_t
  *
  *  flt40_t __fp_mergeA(splflt40_t a);
  *
  *  Register pressure = 5
  *
- *  \Output
+ *  \Input
  *  aE  : r25 Exponent<7..0>
  *  aM0 : r24 1:Mantissa<29..23>
  *  aM1 : r23 Mantissa<22..15>
  *  aM2 : r22 Mantissa<14..7>
- *  aM3 : r27 Sign:Mantissa<6..0>
+ *  aM3 : r27 Mantissa<7..0>
+ *  aS  : T   Sign
  *
- *  \Input
+ *  \Output
  *  aE  : r25 Sign:Exponent<7..1>
  *  aM0 : r24 Exponent<0>:Mantissa<29..23>
  *  aM1 : r23 Mantissa<22..15>
  *  aM2 : r22 Mantissa<14..7>
  *  aM3 : r27 Mantissa<6..0>:0
- *
- *  \Clobber
- *
  ******************************************************************************/
 .macro  __fp_mergeA
   lsl aM0;
@@ -76,7 +104,8 @@
  *  bM0 : r20 1:Mantissa<29..23>
  *  bM1 : r19 Mantissa<22..15>
  *  bM2 : r18 Mantissa<14..7>
- *  bM3 : r26 Sign:Mantissa<6..0>
+ *  bM3 : r26 Mantissa<7..0>
+ *  bS  : T   Sign
  *
  *  \Input
  *  bE  : r21 Sign:Exponent<7..1>
@@ -84,9 +113,6 @@
  *  bM1 : r19 Mantissa<22..15>
  *  bM2 : r18 Mantissa<14..7>
  *  bM3 : r26 Mantissa<6..0>:0
- *
- *  \Clobber
- *
  ******************************************************************************/
 .macro  __fp_mergeB
   lsl aM0;

@@ -34,6 +34,104 @@
 #include "asmdef.h"
 
 /********************************************************************************
+ *  Operand A is inf or NaN.
+ *
+ *  Register pressure = 5
+ *
+ *  \Input - Output
+ *  xE   : r25  Exponent of x
+ *  xM0  : r24  Mantissa<31..24>
+ *  xM1  : r23  Mantissa<23..16>
+ *  xM2  : r22  Mantissa<15..8>
+ *  xM3  : r27  Mantissa<7..0>
+ *  xS  : T Sign of x
+ ********************************************************************************/
+ENTRY _fp_ml_AnonFinite:
+  /*
+  if (bE == 0) {
+    return NaN ; // inf * 0 = NaN
+  }
+  */
+  tst bE;
+  breq  90;
+    rjmp  _U(__fp_nan);
+90:
+
+  /*
+  if (bE == 0xff) {
+    branch ABnonFinite
+  }
+  */
+  cpi bE, 0xff;
+  breq  __fp_ml_ABnonFinite;
+
+  /*else {
+    return (a.sign ^ b.sign) * inf;
+  }
+  */
+  rjmp  _U(__fp_nonFinite)
+ENDFUNC
+
+
+/********************************************************************************
+ *  Operand B is inf or NaN.
+ *
+ *  Register pressure = 5
+ *
+ *  \Input - Output
+ *  xE   : r25  Exponent of x
+ *  xM0  : r24  Mantissa<31..24>
+ *  xM1  : r23  Mantissa<23..16>
+ *  xM2  : r22  Mantissa<15..8>
+ *  xM3  : r27  Mantissa<7..0>
+ *  xS  : T Sign of x
+ ********************************************************************************/
+ENTRY __fp_ml_BnonFinite:
+  /*
+  if (bE == 0) {
+    ret ; // inf * 0 = NaN
+  }
+  */
+  tst aE;
+  breq  A0
+    rjmp  _U(__fp_nan);
+A0:
+
+  /*else {
+    return (a.sign ^ b.sign) * b;
+  }
+  */
+  X_movw  xM2,  bM2;
+  mov   xM1,  bM1;
+  rjmp  _U(__fp_nonFinite)
+ENDFUNC
+
+/********************************************************************************
+ *  Both operand A and B are inf or NaN.
+ *
+ *  Register pressure = 5
+ *
+ *  \Input - Output
+ *  xE   : r25  Exponent of x
+ *  xM0  : r24  Mantissa<31..24>
+ *  xM1  : r23  Mantissa<23..16>
+ *  xM2  : r22  Mantissa<15..8>
+ *  xM3  : r27  Mantissa<7..0>
+ *  xS  : T Sign of x
+ ********************************************************************************/
+ENTRY __fp_ml_ABnonFinite:
+  /*
+  xM = aM || bM; // if any NaN, it will end up in result
+  */
+  or  aM2,  bM2;
+  or  aM1,  bM1;
+  or  aM0,  bM0;
+
+  rjmp  _U(__fp_nonFinite); return (a.sign ^ b.sign) * b;
+ENDFUNC
+
+
+/********************************************************************************
  *  Multiplication of 2 splflt40_t
  *
  *  splflt40_t operator*(splflt40_t a, splflt40_t b) {
@@ -163,187 +261,423 @@ ENTRY   __mulsf3x
   add aE0,  bE; xE <- aE + bE
   adc aE1,  r1;
 
+  #if	defined(__AVR_ENHANCED__) && __AVR_ENHANCED__
+    /********************************************************************************
+     * Register allocation
+     *  Register pressure = 10
+     *  stack size = 0
+     *  # cycles = 2
+     *  aM0 : r24
+     *  aM1 : r23
+     *  aM2 : r22
+     *  aM3 : r27
+     *  bM0 : r20
+     *  bM1 : r19
+     *  bM2 : r18
+     *  bM3 : r26
+     *  xM2 : r30
+     *  xM3 : r27
+     *  zero  : r31
+     ********************************************************************************/
+    #define xM2 r30 
+    clr xM2; xM2 <- 0
+    #define zero  r31
+    clr zero; zero <- 0
+    /********************************************************************************
+     *  Mantissa multiplication of a and b
+     *  xM2:xM3 = aM0*bM3 + aM3*bM0
+     *
+     *  # cycles = 7
+     *
+     *  \Input
+     *  zero  : r = 0 Zero register for add
+     *
+     *  aM0  : r  Mantissa<31..24>
+     *  aM1  : r  Mantissa<23..16>
+     *  aM2  : r  Mantissa<15..8>
+     *  aM3  : r  Mantissa<7..0>
+     *
+     *  bM0  : r  Mantissa<31..24>
+     *  bM1  : r  Mantissa<23..16>
+     *  bM2  : r  Mantissa<15..8>
+     *  bM3  : r  Mantissa<7..0>
+     *
+     *  \Output
+     *  xM2  : r = 0  Mantissa<15..8>
+     *  xM3  : +(aM3)  Mantissa<7..0>
+     *
+     *  \Clobber
+     *  r0
+     *  r1
+     ********************************************************************************/
+
+    mul aM3,  bM0;  r1:r0 = aM0 * bM3
+    mov xM3,  r1; xM3 = r1
+
+    mul aM0,  bM3;  r1:r0 = aM3 * bM0
+    add xM3,  r1; xM2:xM3 += r1
+    adc xM2,  zero;
+
+    /********************************************************************************
+     * Register allocation
+     *  Register pressure = 10
+     *  stack size = 0
+     *  # cycles = 1
+     *  aM0 : r24
+     *  aM1 : r23
+     *  aM2 : r22
+     *  bM0 : r20
+     *  bM1 : r19
+     *  bM2 : r18
+     *  xM1 : r31
+     *  xM2 : r30
+     *  xM3 : r27
+     *  zero  : r26
+     ********************************************************************************/
+    #define xM1 r31
+    #define zero  r26
+    clr zero;
+    /********************************************************************************
+     *  Mantissa multiplication of a and b
+     *  xM1:xM2:xM3 += aM1*bM2 + aM2*bM1 + aM0*bM2 + aM2*bM0
+     *
+     *  # cycles = 18
+     *
+     *  \Input
+     *  zero  : r = 0 Zero register for add
+     *
+     *  aM0  : r  Mantissa<31..24>
+     *  aM1  : r  Mantissa<23..16>
+     *  aM2  : r  Mantissa<15..8>
+     *
+     *  bM0  : r  Mantissa<31..24>
+     *  bM1  : r  Mantissa<23..16>
+     *  bM2  : r  Mantissa<15..8>
+     *
+     *  \Input - Output
+     *  xM2  : r  Mantissa<15..8>
+     *  xM3  : r  Mantissa<7..0>
+     *
+     *  \Output
+     *  xM1  : r = 0  Mantissa<23..16>
+     *
+     *  \Clobber
+     *  r0
+     *  r1
+     ********************************************************************************/
+
+    mul aM1,  bM2;  r1:r0 = aM1 * bM2
+    add xM3,  r1; xM2:xM3 += r1
+    adc xM2,  zero;
+
+    mul aM2,  bM1;  r1:r0 = aM2 * bM1
+    add xM3,  r1; xM2:xM3 += r1
+    adc xM2,  zero;
+
+    mul aM0,  bM2;
+    add xM3,  r0;
+    adc xM2,  r1;
+    adc xM1,  zero;
+
+    mul aM2,  bM0;
+    add xM3,  r0;
+    adc xM2,  r1;
+    adc xM1,  zero;
+
+    /********************************************************************************
+     * Register allocation
+     *  Register pressure = 9
+     *  stack size = 0
+     *  # cycles = 1
+     *  aM0 : r24
+     *  aM1 : r23
+     *  bM0 : r20
+     *  bM1 : r19
+     *  xM0 : r18
+     *  xM1 : r31
+     *  xM2 : r30
+     *  xM3 : r27
+     *  zero  : r26
+     ********************************************************************************/
+    #define xM0 r18
+    clr xM0;
+    /********************************************************************************
+     *  Mantissa multiplication of a and b
+     *  xM0:xM1:xM2:xM3 = aM0:aM1:aM2:aM3 * bM0:bM1:bM2:bM3
+     *
+     *  # cycles = 19
+     *
+     *  \Input
+     *  zero  : r = 0 Zero register for add
+     *
+     *  aM0  : r  Mantissa<31..24>
+     *  aM1  : r  Mantissa<23..16>
+     *
+     *  bM0  : r  Mantissa<31..24>
+     *  bM1  : r  Mantissa<23..16>
+     *
+     *  \Input - Output
+     *  xM1  : r  Mantissa<23..16>
+     *  xM2  : r  Mantissa<15..8>
+     *  xM3  : r  Mantissa<7..0>
+     *
+     *  \Output
+     *  xM0  : r = 0  Mantissa<31..24>
+     *
+     *  \Clobber
+     *  r0
+     *  r1
+     ********************************************************************************/
+
+    mul aM1,  bM1;
+    add xM3,  r0;
+    adc xM2,  r1;
+    adc xM1,  zero;
+
+    mul aM0,  bM1;
+    add xM2,  r0;
+    adc xM1,  r1;
+    adc xM0,  zero;
+
+    mul aM1,  bM0;
+    add xM2,  r0;
+    adc xM1,  r1;
+    adc xM0,  zero;
+
+    mul aM0,  bM0; r1:r0 = aM0 * bM0
+    add xM1,  r0;
+    adc xM0,  r1;
+
+
+  #else	/* to __AVR_ENHANCED__	*/
+    /********************************************************************************
+     * Register allocation
+     *  Register pressure = 10
+     *  stack size = 0
+     *  # cycles = 2
+     *  aM0 : r24
+     *  aM1 : r23
+     *  aM2 : r22
+     *  aM3 : r27
+     *  bM0 : r20
+     *  tmpbM0 : r0
+     *  bM1 : r19
+     *  bM2 : r18
+     *  bM3 : r26
+     *  xM2 : r30
+     *  xM3 : r31
+     ********************************************************************************/
+    #define tmpbM0  r0
+    mov  tmpbM0, bM0
+    #define xM2 r30
+    clr  xM2
+    #define xM3 r31
+    clr  xM3
+    /********************************************************************************
+     *  Mantissa multiplication of a and b
+     *  xM3 = aM0*bM3
+     *
+     *  # cycles = 11
+     *
+     *  \Input
+     *  aM0  : r  Mantissa<31..24>
+     *  aM1  : r  Mantissa<23..16>
+     *  aM2  : r  Mantissa<15..8>
+     *  aM3  : r  Mantissa<7..0>
+     *
+     *  bM0  : r  Mantissa<31..24>
+     *  bM1  : r  Mantissa<23..16>
+     *  bM2  : r  Mantissa<15..8>
+     *  bM3  : r  Mantissa<7..0>
+     *
+     *  \Output
+     *  xM2  : r = 0  Mantissa<15..8>
+     *  xM3  : r = 0  Mantissa<7..0>
+     *
+     *  \Clobber
+     *  bM0  : r  Mantissa<31..24>
+     ********************************************************************************/
+    sec			; to count loops
+	  ror aM3
+ 01:brcc	02f
+	  adc	xM3,  bM0 
+	  adc xM2,  r1
+ 02:rol	bM0
+	  lsr	aM3
+	  brne	01b
+
+    /********************************************************************************
+     * Register allocation
+     *  Register pressure = 10
+     *  stack size = 0
+     *  # cycles = 2
+     *  aM0 : r24
+     *  aM1 : r23
+     *  aM2 : r22
+     *  bM0 : r20
+     *  tmpbM0  : r0
+     *  bM1 : r19
+     *  bM2 : r18
+     *  bM3 : r26
+     *  xM1 : r31
+     *  xM2 : r30
+     *  xM3 : r27
+     ********************************************************************************/
+     mov  r27,  xM3
+     #define  xM3 r27
+     mov  bM0,  tmpbM0
+     #define  xM1
+     clr  xM1
+    /********************************************************************************
+     *  Mantissa multiplication of a and b
+     *  xM3 = aM0*bM3
+     *
+     *  # cycles = 11
+     *
+     *  \Input
+     *  aM0  : r  Mantissa<31..24>
+     *  aM1  : r  Mantissa<23..16>
+     *  aM2  : r  Mantissa<15..8>
+     *
+     *  bM0  : r  Mantissa<31..24>
+     *  bM1  : r  Mantissa<23..16>
+     *  bM2  : r  Mantissa<15..8>
+     *  bM3  : r  Mantissa<7..0>
+     *
+     *  \Output
+     *  xM1  : r = 0  Mantissa<23..16>
+     *  xM2  : r  Mantissa<15..8>
+     *  xM3  : r  Mantissa<7..0>
+     *
+     *  \Clobber
+     *  bM0  : r Mantissa<23..16>
+     ********************************************************************************/
+	  ror aM2
+  11:brcc	12f
+    adc	xM3,  bM1 
+	  adc	xM2,  bM0 
+	  adc xM1,  r1
+  12:rol	bM1
+	  rol	bM0
+	  lsr	aM2
+	  brne	11b
+
+    /********************************************************************************
+     * Register allocation
+     *  Register pressure = 10
+     *  stack size = 0
+     *  # cycles = 1
+     *  aM0 : r24
+     *  aM1 : r23
+     *  bM0 : r19
+     *  tmpbM0  : r0
+     *  bM1 : r20
+     *  bM2 : r18
+     *  bM3 : r26
+     *  xM0 : r22
+     *  xM1 : r31
+     *  xM2 : r30
+     *  xM3 : r27
+     ********************************************************************************/
+    #define bM0 r19
+    #define bM1 r20
+    mov  bM0,  tmpbM0
+    #define xM0 r22
+    clr  xM0
+    /********************************************************************************
+     *  Mantissa multiplication of a and b
+     *  xM3 = aM0*bM3
+     *
+     *  # cycles = 11
+     *
+     *  \Input
+     *  aM0  : r  Mantissa<31..24>
+     *  aM1  : r  Mantissa<23..16>
+     *
+     *  bM0  : r  Mantissa<31..24>
+     *  bM1  : r Mantissa<23..16>
+     *  bM2  : r  Mantissa<15..8>
+     *  bM3  : r  Mantissa<7..0>
+     *
+     *  \Output
+     *  xM0  : r = 0  Mantissa<31..24>
+     *  xM1  : r  Mantissa<23..16>
+     *  xM2  : r  Mantissa<15..8>
+     *  xM3  : r  Mantissa<7..0>
+     *
+     *  \Clobber
+     *  bM0  : r  Mantissa<15..8>
+     ********************************************************************************/
+    ror aM1
+  21:brcc	22f
+    adc	xM3,  bM2 
+    adc	xM2,  bM1 
+	  adc	xM1,  bM0 
+	  adc xM0,  r1
+  22:rol	bM2
+    rol	bM1
+	  rol	bM0
+	  lsr	aM1
+	  brne	21b
+
+
+    /********************************************************************************
+     * Register allocation
+     *  Register pressure = 9
+     *  aM0 : r24
+     *  bM0 : r18
+     *  bM1 : r19
+     *  bM2 : r20
+     *  bM3 : r26
+     *  xM0 : r22
+     *  xM1 : r31
+     *  xM2 : r30
+     *  xM3 : r27
+     ********************************************************************************/
+    #define bM0 r18
+    #define bM1 r19
+    #define bM2 r20
+    #define xM0 r22
+    /********************************************************************************
+     *  Mantissa multiplication of a and b
+     *  xM3 = aM0*bM3
+     *
+     *  # cycles = 9
+     *
+     *  \Input
+     *  aM0  : r  Mantissa<31..24>
+     *
+     *  bM0  : r  Mantissa<31..24>
+     *  bM1  : r Mantissa<23..16>
+     *  bM2  : r  Mantissa<15..8>
+     *  bM3  : r  Mantissa<7..0>
+     *
+     *  \Output
+     *  xM0  : r  Mantissa<31..24>
+     *  xM1  : r  Mantissa<23..16>
+     *  xM2  : r  Mantissa<15..8>
+     *  xM3  : r  Mantissa<7..0>
+     *
+     *  \Clobber
+     *  bM3  : r  Mantissa<7..0>
+     ********************************************************************************/
+    ror aM0
+ 31:brcc	32f
+    adc	xM3,  bM3 
+    adc	xM2,  bM2 
+	  adc	xM1,  bM1 
+	  adc xM0,  bM0
+  32:rol	bM3
+    rol	bM2
+    rol	bM1
+	  rol	bM0
+	  lsr	aM0
+    brne	31b
+
+  #endif	/* not __AVR_ENHANCED__	*/
   /********************************************************************************
    * Register allocation
-   *  Register pressure = 10
-   *  stack size = 0
-   *  # cycles = 2
-   *  aM0 : r24
-   *  aM1 : r23
-   *  aM2 : r22
-   *  aM3 : r27
-   *  bM0 : r20
-   *  bM1 : r19
-   *  bM2 : r18
-   *  bM3 : r26
-   *  xM2 : r30
-   *  xM3 : r27
-   *  zero  : r31
-   ********************************************************************************/
-  clr xM2; xM2 <- 0
-  clr zero; zero <- 0
-  /********************************************************************************
-   *  Mantissa multiplication of a and b
-   *  xM2:xM3 = aM0*bM3 + aM3*bM0
-   *
-   *  # cycles = 7
-   *
-   *  \Input
-   *  aM0  : r  Mantissa<31..24>
-   *  aM1  : r  Mantissa<23..16>
-   *  aM2  : r  Mantissa<15..8>
-   *  aM3  : r  Mantissa<7..0>
-   *
-   *  bM0  : r  Mantissa<31..24>
-   *  bM1  : r  Mantissa<23..16>
-   *  bM2  : r  Mantissa<15..8>
-   *  bM3  : r  Mantissa<7..0>
-   *
-   *  \Output
-   *  xM2  : r = 0  Mantissa<15..8>
-   *  xM3  : +(aM3)  Mantissa<7..0>
-   *
-   *  \Clobber
-   *  r0
-   *  r1
-   *  zero  : r = 0 Zero register for add
-   ********************************************************************************/
-
-  mul aM3,  bM0;  r1:r0 = aM0 * bM3
-  mov xM3,  r1; xM3 = r1
-
-  mul aM0,  bM3;  r1:r0 = aM3 * bM0
-  add xM3,  r1; xM2:xM3 += r1
-  adc xM2,  zero;
-
-  /********************************************************************************
-   * Register allocation
-   *  Register pressure = 10
-   *  stack size = 0
-   *  # cycles = 1
-   *  aM0 : r24
-   *  aM1 : r23
-   *  aM2 : r22
-   *  bM0 : r20
-   *  bM1 : r19
-   *  bM2 : r18
-   *  xM1 : r31
-   *  xM2 : r30
-   *  xM3 : r27
-   *  zero  : r26
-   ********************************************************************************/
-  clr zero;
-  /********************************************************************************
-   *  Mantissa multiplication of a and b
-   *  xM1:xM2:xM3 += aM1*bM2 + aM2*bM1 + aM0*bM2 + aM2*bM0
-   *
-   *  # cycles = 18
-   *
-   *  \Input
-   *  aM0  : r  Mantissa<31..24>
-   *  aM1  : r  Mantissa<23..16>
-   *  aM2  : r  Mantissa<15..8>
-   *
-   *  bM0  : r  Mantissa<31..24>
-   *  bM1  : r  Mantissa<23..16>
-   *  bM2  : r  Mantissa<15..8>
-   *
-   *  \Input - Output
-   *  xM2  : r  Mantissa<15..8>
-   *  xM3  : r  Mantissa<7..0>
-   *
-   *  \Output
-   *  xM1  : r = 0  Mantissa<23..16>
-   *
-   *  \Clobber
-   *  r0
-   *  r1
-   *  zero  : r Zero register for add
-   ********************************************************************************/
-
-  mul aM1,  bM2;  r1:r0 = aM1 * bM2
-  add xM3,  r1; xM2:xM3 += r1
-  adc xM2;
-
-  mul aM2,  bM1;  r1:r0 = aM2 * bM1
-  add xM3,  r1; xM2:xM3 += r1
-  adc xM2;
-
-  mul aM0,  bM2;
-  add xM3,  r0;
-  adc xM2,  r1;
-  adc xM1;
-
-  mul aM2,  bM0;
-  add xM3,  r0;
-  adc xM2,  r1;
-  adc xM1;
-
-  /********************************************************************************
-   * Register allocation
-   *  Register pressure = 9
-   *  stack size = 0
-   *  # cycles = 1
-   *  aM0 : r24
-   *  aM1 : r23
-   *  bM0 : r20
-   *  bM1 : r19
-   *  xM0 : r18
-   *  xM1 : r31
-   *  xM2 : r30
-   *  xM3 : r27
-   *  zero  : r26
-   ********************************************************************************/
-  clr xM0;
-  /********************************************************************************
-   *  Mantissa multiplication of a and b
-   *  xM0:xM1:xM2:xM3 = aM0:aM1:aM2:aM3 * bM0:bM1:bM2:bM3
-   *
-   *  # cycles = 19
-   *
-   *  \Input
-   *  aM0  : r  Mantissa<31..24>
-   *  aM1  : r  Mantissa<23..16>
-   *
-   *  bM0  : r  Mantissa<31..24>
-   *  bM1  : r  Mantissa<23..16>
-   *
-   *  \Input - Output
-   *  xM1  : r  Mantissa<23..16>
-   *  xM2  : r  Mantissa<15..8>
-   *  xM3  : r  Mantissa<7..0>
-   *
-   *  \Output
-   *  xM0  : r = 0  Mantissa<31..24>
-   *
-   *  \Clobber
-   *  r0
-   *  r1
-   *  zero  : r = 0 Zero register for add
-   ********************************************************************************/
-
-  mul aM1,  bM1;
-  add xM3,  r0;
-  adc xM2,  r1;
-  adc xM1;
-
-  mul aM0,  bM1;
-  add xM2,  r0;
-  adc xM1,  r1;
-  adc xM0,  zero;
-
-  mul aM1,  bM0;
-  add xM2,  r0;
-  adc xM1,  r1;
-  adc xM0,  zero;
-
-  mul aM0,  bM0; r1:r0 = aM0 * bM0
-  add xM1,  r0;
-  adc xM0,  r1;
-
-  /********************************************************************************
-   * Register allocation
-   *  Register pressure = 5
+   *  Register pressure = 6
    *  stack size = 0
    *  # cycles = 3
    *  xE1 : r21
@@ -353,11 +687,10 @@ ENTRY   __mulsf3x
    *  xM2 : r22
    *  xM3 : r27
    ********************************************************************************/
-  clr   r1;
-  movw  r22,  xM2;
+  X_movw  r22,  xM2
   #define xM2 r22
   #define xM1 r23
-  mov   r24,  xM0;
+  mov   r24,  xM0
   #define xM0 r24
   /********************************************************************************
    *  Renormalization or denormalization of Mantissa
@@ -377,12 +710,14 @@ ENTRY   __mulsf3x
 	sbci	xE1, hi8(127)
 
   ; if (xE == 1)
-  //breq  14; normalisation is not possible : but can be handled anyway in 81!
+  //breq  14; normalisation is not possible : but can be handled anyway in 81
   ; if (xE >= 1)
   brcc	81f
     ; denormalization is needed
     cpi xM0,  lo8(-24); if (xE < -24)
-    brlt	_U(__fp_szero); return s0.0
+    brlt	80
+      rjmp  _U(__fp_szero); return s0.0
+   80:
 
     /*
     while (xE < 1) {
@@ -398,14 +733,14 @@ ENTRY   __mulsf3x
     inc xE0;
     brne  80;
     inc xE0;
-    rjmp  84;
+    rjmp  85;
 
 
 81:
   ; if (xE >= 255)
   cpi xE0,  254;
   cpc xE1,  r1;
-  brsh  _U(__fp_inf);
+  brsh  __fp_ml_inf;
 
   /*
   while (xM <= 1.0 && xE > 1) {
@@ -415,115 +750,35 @@ ENTRY   __mulsf3x
   */
   tst xM0
   brmi  84
-82:
+83:
     subi  xE0, 1;
-    brlo  83;
+    brlo  84;
     lsl xM3;
     rol xM2;
     rol xM1;
     rol xM0;
-    brpl  82;
-83:
-  subi  xE0,  -2
+    brpl  83;
 84:
+  subi  xE0,  -2
+85:
 
   ret;
 ENDFUNC
 
 
 /********************************************************************************
- *  Operand A is inf or NaN.
+ *  Answer is inf
  *
- *  Register pressure = 5
+ *  \Input
+ *  xS  : T sign of result
  *
- *  \Input - Output
- *  xE   : r25  Exponent of x
- *  xM0  : r24  Mantissa<31..24>
- *  xM1  : r23  Mantissa<23..16>
- *  xM2  : r22  Mantissa<15..8>
- *  xM3  : r30  Mantissa<7..0>
- *  xS  : T Sign of x
+ *  \Output
+ *  xE  : r25 Sign:Exponent<7..1>
+ *  xM0 : r24 Exponent<0>:Mantissa<22..16>
+ *  xM1 : r23 Mantissa<15..8>
+ *  xM2 : r22 Mantissa<7..0>
  ********************************************************************************/
-ENTRY _fp_ml_AnonFinite:
-  /*
-  if (bE == 0) {
-    ret ; // inf * 0 = NaN
-  }
-  */
-  tst bE;
-  breq  _fp_nan;
-
-  /*
-  if (bE == 0xff) {
-    ret ; // inf * 0 = NaN
-  }
-  */
-  cpi bE, 0xff;
-  breq  __fp_ml_ABnonFinite;
-
-  /*else {
-    return (a.sign ^ b.sign) * inf;
-  }
-  */
-  rjmp  _U(__fp_nonFinite)
+ENTRY __fp_ml_inf:
+  rjmp  _U(__fp_inf);
 ENDFUNC
-
-
-/********************************************************************************
- *  Operand B is inf or NaN.
- *
- *  Register pressure = 5
- *
- *  \Input - Output
- *  xE   : r25  Exponent of x
- *  xM0  : r24  Mantissa<31..24>
- *  xM1  : r23  Mantissa<23..16>
- *  xM2  : r22  Mantissa<15..8>
- *  xM3  : r30  Mantissa<7..0>
- *  xS  : T Sign of x
- ********************************************************************************/
-ENTRY __fp_ml_BnonFinite:
-  /*
-  if (bE == 0) {
-    ret ; // inf * 0 = NaN
-  }
-  */
-  tst aE;
-  breq  _fp_nan;
-  
-
-  /*else {
-    return (a.sign ^ b.sign) * b;
-  }
-  */
-  X_movw  xM2,  bM2;
-  mov   xM1,  bM1;
-  rjmp  _U(__fp_nonFinite)
-ENDFUNC
-
-/********************************************************************************
- *  Both operand A and B are inf or NaN.
- *
- *  Register pressure = 5
- *
- *  \Input - Output
- *  xE   : r25  Exponent of x
- *  xM0  : r24  Mantissa<31..24>
- *  xM1  : r23  Mantissa<23..16>
- *  xM2  : r22  Mantissa<15..8>
- *  xM3  : r30  Mantissa<7..0>
- *  xS  : T Sign of x
- ********************************************************************************/
-ENTRY __fp_ml_ABnonFinite:
-  /*
-  xM = aM || bM; // if any NaN, it will end up in result
-  */
-  or  aM2,  bM2;
-  or  aM1,  bM1;
-  or  aM0,  bM0;
-
-  rjmp  _U(__fp_nonFinite); return (a.sign ^ b.sign) * b;
-ENDFUNC
-
-
 

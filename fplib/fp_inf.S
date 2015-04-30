@@ -42,11 +42,10 @@
  *  xS  : T sign of result
  *
  *  \Output
- *  xE  : +(aE)   Sign:Exponent<7..1>
- *  xM0 : +(aM3)  Exponent<0>:Mantissa<22..16>
- *  xM1 : +(aM2)  Mantissa<15..8>
- *  xM2 : +(aM1)  Mantissa<7..0>
- *
+ *  xE  : r25 Sign:Exponent<7..1>
+ *  xM0 : r24 Exponent<0>:Mantissa<22..16>
+ *  xM1 : r23 Mantissa<15..8>
+ *  xM2 : r22 Mantissa<7..0>
  ********************************************************************************/
 ENTRY   __fp_inf
 	ldi	xM2, 0
@@ -62,11 +61,10 @@ ENTRY   __fp_inf
  *  xS  : T sign of result
  *
  *  \Input - Output
- *  xE  : +(aE)   Sign:Exponent<7..1>
- *  xM0 : +(aM3)  Exponent<0>:Mantissa<22..16>
- *  xM1 : +(aM2)  Mantissa<15..8>
- *  xM2 : +(aM1)  Mantissa<7..0>
- *
+ *  xE  : r25   Sign:Exponent<7..1>
+ *  xM0 : r24  Exponent<0>:Mantissa<22..16>
+ *  xM1 : r23  Mantissa<15..8>
+ *  xM2 : r22  Mantissa<7..0>
  ********************************************************************************/
 ENTRY   __fp_nonFinite
   ori	xM0, 0x80
