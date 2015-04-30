@@ -1,0 +1,76 @@
+/* Copyright (c) 2002  Michael Stumpf  <mistumpf@de.pepperl-fuchs.com>
+   Copyright (c) 2006  Dmitry Xmelkov
+   Copyright (c) 2015  Etienne Pierre-Doray
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+
+   * Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+   * Neither the name of the copyright holders nor the names of
+     contributors may be used to endorse or promote products derived
+     from this software without specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+   POSSIBILITY OF SUCH DAMAGE. */
+
+/* $Id: fp_inf.S 1173 2007-01-14 15:04:40Z dmix $ */
+
+#include "fp32def.h"
+#include "asmdef.h"
+
+/********************************************************************************
+ *  __fp_inf() return Inf value in flt32_t.
+ *
+ *  Register pressure = 4
+ *
+ *  \Input
+ *  xS  : T sign of result
+ *
+ *  \Output
+ *  xE  : +(aE)   Sign:Exponent<7..1>
+ *  xM0 : +(aM3)  Exponent<0>:Mantissa<22..16>
+ *  xM1 : +(aM2)  Mantissa<15..8>
+ *  xM2 : +(aM1)  Mantissa<7..0>
+ *
+ ********************************************************************************/
+ENTRY   __fp_inf
+	ldi	xM2, 0
+	ldi	xM1, 0
+  ldi	xM0, 0
+/********************************************************************************
+ *  __fp_nonFinite() return inf or NaN value in flt32_t
+ *  Weither result is inf or NaN depends on value of mantissa
+ *
+ *  Register pressure = 4
+ *
+ *  \Input
+ *  xS  : T sign of result
+ *
+ *  \Input - Output
+ *  xE  : +(aE)   Sign:Exponent<7..1>
+ *  xM0 : +(aM3)  Exponent<0>:Mantissa<22..16>
+ *  xM1 : +(aM2)  Mantissa<15..8>
+ *  xM2 : +(aM1)  Mantissa<7..0>
+ *
+ ********************************************************************************/
+ENTRY   __fp_nonFinite
+  ori	xM0, 0x80
+  ldi	xE, 0xff
+  bld	xE, 7		; sign
+	ret
+ENDFUNC
