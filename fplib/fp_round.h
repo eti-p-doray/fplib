@@ -51,16 +51,16 @@
  ********************************************************************************/
 .macro  __fp_round
   lsl xM3;
-  brne  0;  no ties
-    cbr xM2, (1<<0); ties to even
-    jmp 1;
-0:
+  brne  round0;
   adc xM2;
   adc xM1;
   adc xM0;
   adc xE;
-  brvs  _U(__fp_inf);
-1:
+  brvs  _U(__fp_inf); 1 in (2^33)...
+  ret
+round0:
+  cbr xM2, (1 << 0); ties to even
+  ret
 .endmacro
 
 #endif /* !defined(__AVR_TINY__) */

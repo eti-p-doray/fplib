@@ -475,7 +475,7 @@ ENTRY   __mulsf3x
     clr  xM3
     /********************************************************************************
      *  Mantissa multiplication of a and b
-     *  xM3 = aM0*bM3
+     *  xM2:xM3 = aM3*bM0
      *
      *  # cycles = 11
      *
@@ -497,6 +497,11 @@ ENTRY   __mulsf3x
      *  \Clobber
      *  bM0  : r  Mantissa<31..24>
      ********************************************************************************/
+    /*
+    for (int i = 0; i < 8; i++) {
+      xM += aM3<i> * (bM << i) >> 24;
+    }
+    */
     sec			; to count loops
 	  ror aM3
  01:brcc	02f
@@ -508,9 +513,9 @@ ENTRY   __mulsf3x
 
     /********************************************************************************
      * Register allocation
-     *  Register pressure = 10
+     *  Register pressure = 11
      *  stack size = 0
-     *  # cycles = 2
+     *  # cycles = 3
      *  aM0 : r24
      *  aM1 : r23
      *  aM2 : r22
@@ -530,9 +535,7 @@ ENTRY   __mulsf3x
      clr  xM1
     /********************************************************************************
      *  Mantissa multiplication of a and b
-     *  xM3 = aM0*bM3
-     *
-     *  # cycles = 11
+     *  xM1:xM2:xM3 += aM2*bM0:bM1
      *
      *  \Input
      *  aM0  : r  Mantissa<31..24>
@@ -552,6 +555,11 @@ ENTRY   __mulsf3x
      *  \Clobber
      *  bM0  : r Mantissa<23..16>
      ********************************************************************************/
+    /*
+    for (int i = 0; i < 8; i++) {
+      xM += aM2<i> * (bM << i) >> 16;
+    }
+    */
 	  ror aM2
   11:brcc	12f
     adc	xM3,  bM1 
@@ -564,9 +572,9 @@ ENTRY   __mulsf3x
 
     /********************************************************************************
      * Register allocation
-     *  Register pressure = 10
+     *  Register pressure = 11
      *  stack size = 0
-     *  # cycles = 1
+     *  # cycles = 2
      *  aM0 : r24
      *  aM1 : r23
      *  bM0 : r19
@@ -586,9 +594,7 @@ ENTRY   __mulsf3x
     clr  xM0
     /********************************************************************************
      *  Mantissa multiplication of a and b
-     *  xM3 = aM0*bM3
-     *
-     *  # cycles = 11
+     *  xM0:xM1:xM2:xM3 += aM1*bM0:bM1:bM2
      *
      *  \Input
      *  aM0  : r  Mantissa<31..24>
@@ -608,6 +614,11 @@ ENTRY   __mulsf3x
      *  \Clobber
      *  bM0  : r  Mantissa<15..8>
      ********************************************************************************/
+    /*
+    for (int i = 0; i < 8; i++) {
+      xM += aM1<i> * (bM << i) >> 8;
+    }
+    */
     ror aM1
   21:brcc	22f
     adc	xM3,  bM2 
@@ -640,9 +651,7 @@ ENTRY   __mulsf3x
     #define xM0 r22
     /********************************************************************************
      *  Mantissa multiplication of a and b
-     *  xM3 = aM0*bM3
-     *
-     *  # cycles = 9
+     *  xM0:xM1:xM2:xM3 += aM0*bM0:bM1:bM2:bM3
      *
      *  \Input
      *  aM0  : r  Mantissa<31..24>
@@ -661,13 +670,18 @@ ENTRY   __mulsf3x
      *  \Clobber
      *  bM3  : r  Mantissa<7..0>
      ********************************************************************************/
+    /*
+    for (int i = 0; i < 8; i++) {
+      xM += aM0<i> * (bM << i);
+    }
+    */
     ror aM0
  31:brcc	32f
     adc	xM3,  bM3 
     adc	xM2,  bM2 
 	  adc	xM1,  bM1 
 	  adc xM0,  bM0
-  32:rol	bM3
+ 32:rol	bM3
     rol	bM2
     rol	bM1
 	  rol	bM0
@@ -678,7 +692,6 @@ ENTRY   __mulsf3x
   /********************************************************************************
    * Register allocation
    *  Register pressure = 6
-   *  stack size = 0
    *  # cycles = 3
    *  xE1 : r21
    *  xE0 : r25
@@ -718,7 +731,6 @@ ENTRY   __mulsf3x
     brlt	80
       rjmp  _U(__fp_szero); return s0.0
    80:
-
     /*
     while (xE < 1) {
       xM <<= 1;
@@ -734,7 +746,6 @@ ENTRY   __mulsf3x
     brne  80;
     inc xE0;
     rjmp  85;
-
 
 81:
   ; if (xE >= 255)

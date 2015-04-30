@@ -57,16 +57,22 @@
 .macro  __fp_splitA
   lsl aM0;
   rol aE;
-  breq  0;
-    ror aM3;
-    cpi __zero_reg__, aM2;
-    cpc __zero_reg__, aM1;
-    cpc __zero_reg__, aM0;
-    rol aE;
-    rjmp  0;
+  breq  splitA1
   ror aM3;
-0:ror bM0;
+splitA0:
+  ror bM0;
 .endmacro
+
+.macro  __fp_splitA_subnormal
+splitA1:
+  ror aM3;
+  cpi __zero_reg__, aM2;
+  cpc __zero_reg__, aM1;
+  cpc __zero_reg__, aM0;
+  rol aE;
+  rjmp  splitA0;
+.endmacro
+  
 
 
 /******************************************************************************
@@ -93,15 +99,20 @@
 .macro  __fp_splitB
   lsl bM0;
   rol bE;
-  breq  1;
-    ror bM3;
-    cpi __zero_reg__, bM2;
-    cpc __zero_reg__, bM1;
-    cpc __zero_reg__, bM0;
-    rol bE;
-    rjmp  1;
+  breq  splitB1 ;
   ror bM3;
-1:ror bM0;
+spltB0:
+  :ror bM0;
+.endmacro
+
+.macro  __fp_splitB_subnormal
+splitB1 :
+  ror bM3;
+  cpi __zero_reg__, bM2;
+  cpc __zero_reg__, bM1;
+  cpc __zero_reg__, bM0;
+  rol bE;
+  rjmp  splitB0;
 .endmacro
 
 #endif /* !defined(__AVR_TINY__) */
