@@ -28,26 +28,13 @@
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
    POSSIBILITY OF SUCH DAMAGE. */
 
-/* $Id: fp_zero.S 1174 2007-01-14 15:13:54Z dmix $ */
+/* $Id: fp_inf.S 1173 2007-01-14 15:04:40Z dmix $ */
 
 #include "fp32def.h"
 #include "asmdef.h"
 
 /********************************************************************************
- *  __fp_zero() return 0.0 in flt32_t
- *
- *  Register pressure = 4
- *
- *  \Output
- *  xE  : r25 Sign:Exponent<7..1>
- *  xM0 : r24 Exponent<0>:Mantissa<22..16>
- *  xM1 : r23 Mantissa<15..8>
- *  xM2 : r22 Mantissa<7..0>
- ********************************************************************************/
-ENTRY	__fp_zero
-	clt
-/********************************************************************************
- *  __fp_szero() return 0.0 with sign bit in flt32_t
+ *  __fp_inf() return Inf value in splflt40_t.
  *
  *  Register pressure = 4
  *
@@ -55,15 +42,36 @@ ENTRY	__fp_zero
  *  xS  : T sign of result
  *
  *  \Output
- *  xE  : r25 Sign:Exponent<7..1>
- *  xM0 : r24 Exponent<0>:Mantissa<22..16>
- *  xM1 : r23 Mantissa<15..8>
- *  xM2 : r22 Mantissa<7..0>
+ *  xE  : r25 Exponent<7..0>
+ *  xM0 : r24 1:Mantissa<29..21>
+ *  xM1 : r23 Mantissa<21..15>
+ *  xM2 : r22 Mantissa<14..7>
+ *  xM3 : r27 Sign:Mantissa<6..0>
  ********************************************************************************/
-ENTRY   __fp_szero
-	clr	xM2
-	clr	xM1
-	X_movw	xM0, xM2
-	bld	xE, 7
+ENTRY   __fp_splinf
+	ldi	xM3, 0
+	ldi	xM2, 0
+	ldi	xM1, 0
+  ldi	xM0, 0
+/********************************************************************************
+ *  __fp_nonFinite() return inf or NaN value in splflt40_t
+ *  Weither result is inf or NaN depends on value of mantissa
+ *
+ *  Register pressure = 4
+ *
+ *  \Input
+ *  xS  : T sign of result
+ *
+ *  \Input - Output
+ *  xE  : r25 Exponent<7..0>
+ *  xM0 : r24 1:Mantissa<29..21>
+ *  xM1 : r23 Mantissa<21..15>
+ *  xM2 : r22 Mantissa<14..7>
+ *  xM3 : r27 Sign:Mantissa<6..0>
+ ********************************************************************************/
+ENTRY   __fp_splnonfinite
+  ori	xM0, 0x80
+  ldi	xE, 0xff
+  bld xM3,  7
 	ret
 ENDFUNC

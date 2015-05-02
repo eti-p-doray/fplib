@@ -66,7 +66,7 @@ ENTRY   __fp_inf
  *  xM1 : r23  Mantissa<15..8>
  *  xM2 : r22  Mantissa<7..0>
  ********************************************************************************/
-ENTRY   __fp_nonFinite
+ENTRY   __fp_nonfinite
   ori	xM0, 0x80
   ldi	xE, 0xff
   bld	xE, 7		; sign

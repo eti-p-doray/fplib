@@ -26,7 +26,7 @@
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
    POSSIBILITY OF SUCH DAMAGE. */
 
-/* $Id: fp_zero.S 1174 2015-01-14 15:13:54Z etipdoray $ */
+/* $Id: fp_merge.S 1174 2015-01-14 15:13:54Z etipdoray $ */
 
 #include "fp32def.h"
 #include "asmdef.h"
@@ -53,13 +53,13 @@
 *  xM2 : r22 Mantissa<14..7>
 *  xM3 : r27 Mantissa<6..0>:0
 ******************************************************************************/
-.macro  __fp_mergeX
-lsl xM0;
-sbci  xE, -1
-ror xE;
-ror xM0;
-bld xE, 7;
-.endmacro
+.macro  FP_MERGEX
+  lsl xM0;
+  sbci  xE, -1
+  ror xE;
+  ror xM0;
+  bld xE, 7;
+.endm
 
 /******************************************************************************
  *  The __fp_mergeA() convert an A splflt40_t number to flt40_t
@@ -81,15 +81,15 @@ bld xE, 7;
  *  aM0 : r24 Exponent<0>:Mantissa<29..23>
  *  aM1 : r23 Mantissa<22..15>
  *  aM2 : r22 Mantissa<14..7>
- *  aM3 : r27 Mantissa<6..0>:0
+ *  aM3 : r27 Mantissa<7..0>
  ******************************************************************************/
-.macro  __fp_mergeA
+.macro  FP_MERGEA
   lsl aM0;
   sbci  aE, -1
   ror aE;
   ror aM0;
   bld aE, 7;
-.endmacro
+.endm
 
 
 /******************************************************************************
@@ -112,14 +112,12 @@ bld xE, 7;
  *  bM0 : r20 Exponent<0>:Mantissa<29..23>
  *  bM1 : r19 Mantissa<22..15>
  *  bM2 : r18 Mantissa<14..7>
- *  bM3 : r26 Mantissa<6..0>:0
+ *  bM3 : r26 Mantissa<7..0>
  ******************************************************************************/
-.macro  __fp_mergeB
-  lsl aM0;
+.macro  FP_MERGEB
+  lsl bM0;
   sbci  bE, -1
-  ror aE;
-  ror aM0;
-  bld aE, 7;
-.endmacro
-
-#endif /* !defined(__AVR_TINY__) */
+  ror bE;
+  ror bM0;
+  bld bE, 7;
+.endm

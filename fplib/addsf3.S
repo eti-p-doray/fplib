@@ -28,13 +28,13 @@
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
    POSSIBILITY OF SUCH DAMAGE. */
 
-/* $Id: mulsf3.S 1174 2007-01-14 15:13:54Z dmix $ */
+/* $Id: addsf3.S 1174 2007-01-14 15:13:54Z dmix $ */
 
 #include "fp32def.h"
 #include "asmdef.h"
 #include "fp_split.h"
 
-FUNCTION __mulsf3
+FUNCTION __addsf3
 
 /********************************************************************************
  *  Both operand A and B are inf or NaN.
@@ -57,7 +57,12 @@ FUNCTION __mulsf3
  *  xM3  : r27  Mantissa<7..0>
  *  xS  : T Sign of x
  ********************************************************************************/
-__fp_ml_ABnonfinite:
+__fp_pl_ABnonfinite:
+  eor aM3,  bM3;  xM3<7> <- a.sign ^ b.sign
+  brpl  L20
+    rjmp  _U(__fp_nan); if (a.sign != b.sign)
+L20:
+
   /*
   xM = aM || bM; // if any NaN, it will end up in result
   */
@@ -65,7 +70,7 @@ __fp_ml_ABnonfinite:
   or  aM1,  bM1;
   or  aM0,  bM0;
 
-  rjmp  _U(__fp_nonfinite); return (a.sign ^ b.sign) * b;
+  rjmp  _U(__fp_nonfinite); return A;
 
 /********************************************************************************
  *  Operand A is inf or NaN.
@@ -83,33 +88,13 @@ __fp_ml_ABnonfinite:
  *  xM3 : r27  Mantissa<7..0>
  *  xS  : T Sign of x
  ********************************************************************************/
-__fp_ml_Anonfinite:
-  eor aM3, bM3
-  bst xM3, 7;
-
-  /*
-  if (bE == 0) {
-    return NaN ; // inf * 0 = NaN
-  }
-  */
-  tst bE;
-  breq  90;
-    rjmp  _U(__fp_nan);
-90:
-
-  /*
-  if (bE == 0xff) {
-    branch ABnonFinite
-  }
-  */
+__fp_pl_Anonfinite:
+  bst aM3,  7;
+  
   cpi bE, 0xff;
-  breq  __fp_ml_ABnonfinite;
+  breq  __fp_pl_ABnonfinite;  if (bE == 0xff)
 
-  /*else {
-    return (a.sign ^ b.sign) * inf;
-  }
-  */
-  rjmp  _U(__fp_nonfinite)
+  rjmp  _U(__fp_nonfinite); return A
 
 
 /********************************************************************************
@@ -128,33 +113,19 @@ __fp_ml_Anonfinite:
  *  xM3 : r27  Mantissa<7..0>
  *  xS  : T Sign of x
  ********************************************************************************/
-__fp_ml_Bnonfinite:
-  eor aM3, bM3
-  bst xM3, 7;
-  /*
-  if (bE == 0) {
-    ret ; // inf * 0 = NaN
-  }
-  */
-  tst aE;
-  breq  LA0
-  rjmp  _U(__fp_nan);
-LA0:
+__fp_pl_Bnonfinite:
+  bst aM3,  7;
 
-  /*else {
-    return (a.sign ^ b.sign) * b;
-  }
-  */
+  ; return b;
   X_movw  xM2,  bM2;
   mov   xM1,  bM1;
   rjmp  _U(__fp_nonfinite)
 
-
-/********************************************************************************
- *  Multiplication of 2 flt32_t
+/*******************************************************************************
+ *  Addition / substraction of 2 flt32_t
  *
- *  flt32_t operator*(flt32_t a, flt32_t b) {
- *    x = a * b;
+ *  flt32_t operator+(flt32_t a, flt32_t b) {
+ *    x = a + b;
  *    return x;
  *  }
  *
@@ -165,8 +136,8 @@ LA0:
  *  aM0 : r24 Exponent<0>:Mantissa<22..16>
  *  aM1 : r23 Mantissa<15..8>
  *  aM2 : r22 Mantissa<7..0>
- *  bE  : r22 Sign:Exponent<7..1>
- *  bM0 : r21 Exponent<0>:Mantissa<22..16>
+ *  bE  : r21 Sign:Exponent<7..1>
+ *  bM0 : r20 Exponent<0>:Mantissa<22..16>
  *  bM1 : r19 Mantissa<15..8>
  *  bM2 : r18 Mantissa<7..0>
  *
@@ -182,22 +153,24 @@ LA0:
  *  r28
  *  r30
  *  r31
- ********************************************************************************/
+ ******************************************************************************/
 
 FP_SPLITA_CSUBN
 FP_SPLITB_CSUBN
 
-ENTRY __mulsf3
+ENTRY	__subsf3
+	subi	xE, 0x80	; complement sign bit of B
+ENTRY	__addsf3
 
   FP_SPLITA;
   FP_SPLITB;
-
+  
   cpi aE, 0xff;
-  breq  __fp_ml_Anonfinite; if (aE == 0xff)
+  breq  __fp_pl_Anonfinite; if (aE == 0xff)
   cpi bE, 0xff;
-  breq  __fp_ml_Bnonfinite; if (bE == 0xff)
-
-	rcall	_U(__mulsf3x)
+  breq  __fp_pl_Bnonfinite; if (bE == 0xff)
+  
+	rcall	_U(__addsf3x)
   rjmp _U(__fp_pack);
-
+  
 ENDFUNC

@@ -28,12 +28,12 @@
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
    POSSIBILITY OF SUCH DAMAGE. */
 
-/* $Id: fp_zero.S 1174 2007-01-14 15:13:54Z dmix $ */
+/* $Id: fp_round.S 1174 2007-01-14 15:13:54Z dmix $ */
 
 #include "fp32def.h"
 #include "asmdef.h"
 
-/********************************************************************************
+/*******************************************************************************
  *  The __fp_round() function rounds an input number. This is an internal
  *  function intended to run after __addsf3x() and like.
  *
@@ -46,21 +46,24 @@
  *  xM0 : r24  Exponent<0>:Mantissa<30..23>
  *  xM1 : r23  Mantissa<22..15>
  *  xM2 : r22  Mantissa<14..7>
- *  xM3 : r27  Mantissa<6..0>:0
+ *  xM3 : r27  Mantissa<7..0>
  *  aS  : T sign of x
- ********************************************************************************/
-.macro  __fp_round
+ ******************************************************************************/
+.macro  FP_ROUNDX
   lsl xM3;
-  brne  round0;
-  adc xM2;
-  adc xM1;
-  adc xM0;
-  adc xE;
-  brvs  _U(__fp_inf); 1 in (2^33)...
+  brne  __fp_round0;
+  adc xM2,  r1;
+  adc xM1,  r1;
+  adc xM0,  r1;
+  adc xE, r1;
+  brvs  __fp_rd_inf;
   ret
-round0:
+
+__fp_rd_inf:
+  rjmp _U(__fp_inf);
+
+__fp_round0:
   cbr xM2, (1 << 0); ties to even
   ret
-.endmacro
+.endm
 
-#endif /* !defined(__AVR_TINY__) */

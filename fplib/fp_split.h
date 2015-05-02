@@ -28,13 +28,13 @@
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
    POSSIBILITY OF SUCH DAMAGE. */
 
-/* $Id: fp_zero.S 1174 2007-01-14 15:13:54Z dmix $ */
+/* $Id: fp_split.S 1174 2007-01-14 15:13:54Z dmix $ */
 
 #include "fp32def.h"
 #include "asmdef.h"
 
 /******************************************************************************
- *  The __fp_splitA() convert an A flt40_t number to splflt40_t
+ *  The __fp_splitA() convert an A flt32_t number to splflt40_t
  *
  *  splflt40_t __fp_splitA(flt40_t a);
  *
@@ -42,10 +42,9 @@
  *
  *  \Input
  *  aE  : r25 Sign:Exponent<7..1>
- *  aM0 : r24 Exponent<0>:Mantissa<29..23>
- *  aM1 : r23 Mantissa<22..15>
- *  aM2 : r22 Mantissa<14..7>
- *  aM3 : r27 Mantissa<6..0>:1
+ *  aM0 : r24 Exponent<0>:Mantissa<23..16>
+ *  aM1 : r23 Mantissa<15..8>
+ *  aM2 : r22 Mantissa<7..0>
  *
  *  \Output
  *  aE  : r25 Exponent<7..0>
@@ -54,29 +53,31 @@
  *  aM2 : r22 Mantissa<14..7>
  *  aM3 : r27 Sign:Mantissa<6..0>
  ******************************************************************************/
-.macro  __fp_splitA
+.macro  FP_SPLITA
+  ldi aM3,  0x01;
   lsl aM0;
   rol aE;
-  breq  splitA1
+  breq  __fp_splitA1
   ror aM3;
-splitA0:
-  ror bM0;
-.endmacro
+__fp_splitA0:
+  ror aM0;
+.endm
 
-.macro  __fp_splitA_subnormal
-splitA1:
+.macro  FP_SPLITA_CSUBN
+__fp_splitA1:
   ror aM3;
-  cpi __zero_reg__, aM2;
-  cpc __zero_reg__, aM1;
-  cpc __zero_reg__, aM0;
+  cp  r1, aM2;
+  cpc r1, aM1;
+  cpc r1, aM0;
   rol aE;
-  rjmp  splitA0;
-.endmacro
+  cpi aE, 1;
+  rjmp  __fp_splitA0;
+.endm
   
 
 
 /******************************************************************************
- *  The __fp_splitB() convert an B flt40_t number to splflt40_t
+ *  The __fp_splitB() convert an B flt32_t number to splflt40_t
  *
  *  splflt40_t __fp_splitB(flt40_t b);
  *
@@ -84,10 +85,9 @@ splitA1:
  *
  *  \Input
  *  bE  : r21 Sign:Exponent<7..1>
- *  bM0 : r20 Exponent<0>:Mantissa<29..23>
- *  bM1 : r19 Mantissa<22..15>
- *  bM2 : r18 Mantissa<14..7>
- *  bM3 : r26 Mantissa<6..0>:1
+ *  bM0 : r20 Exponent<0>:Mantissa<23..16>
+ *  bM1 : r19 Mantissa<15..8>
+ *  bM2 : r18 Mantissa<7..0>
  *
  *  \Output
  *  bE  : r21 Exponent<7..0>
@@ -96,23 +96,23 @@ splitA1:
  *  bM2 : r18 Mantissa<14..7>
  *  bM3 : r26 Sign:Mantissa<6..0>
  ******************************************************************************/
-.macro  __fp_splitB
+.macro  FP_SPLITB
+  ldi bM3,  0x01;
   lsl bM0;
   rol bE;
-  breq  splitB1 ;
+  breq  __fp_splitB1
   ror bM3;
-spltB0:
-  :ror bM0;
-.endmacro
+__fp_splitB0:
+  ror bM0;
+.endm
 
-.macro  __fp_splitB_subnormal
-splitB1 :
+.macro  FP_SPLITB_CSUBN
+__fp_splitB1:
   ror bM3;
-  cpi __zero_reg__, bM2;
-  cpc __zero_reg__, bM1;
-  cpc __zero_reg__, bM0;
+  cp  r1, bM2;
+  cpc r1, bM1;
+  cpc r1, bM0;
   rol bE;
-  rjmp  splitB0;
-.endmacro
-
-#endif /* !defined(__AVR_TINY__) */
+  cpi bE, 1;
+  rjmp  __fp_splitB0;
+.endm

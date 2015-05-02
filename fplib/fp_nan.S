@@ -34,6 +34,19 @@
 #include "asmdef.h"
 
 /********************************************************************************
+ *  __fp_splnan() return NaN value in splflt40_t : 0xffc0XXXXXX
+ *
+ *  Register pressure = 5
+ *
+ *  \Output
+ *  xE  : r25 Exponent<7..0>
+ *  xM0 : r24 1:Mantissa<29..21>
+ *  xM1 : r23 Mantissa<21..15>
+ *  xM2 : r22 Mantissa<14..7>
+ *  xM3 : r27 Sign:Mantissa<6..0>
+ ********************************************************************************/
+ENTRY   __fp_splnan
+/********************************************************************************
  *  __fp_nan() return NaN value in flt32_t : 0xffc0XXXX
  *
  *  Register pressure = 4
@@ -45,7 +58,7 @@
  *  xM2 : r22 Mantissa<7..0>
  ********************************************************************************/
 ENTRY   __fp_nan
-	ldi	rA3, 0xFF
-	ldi	rA2, 0xC0
+	ldi	xE,   0xFF
+	ldi	xM0,  0xC0
 	ret
 ENDFUNC

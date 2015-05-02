@@ -28,42 +28,30 @@
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
    POSSIBILITY OF SUCH DAMAGE. */
 
-/* $Id: fp_zero.S 1174 2007-01-14 15:13:54Z dmix $ */
+/* $Id: fp_inf.S 1173 2007-01-14 15:04:40Z dmix $ */
 
-#include "fp32def.h"
-#include "asmdef.h"
+#include <stdint.h>
 
-/********************************************************************************
- *  __fp_zero() return 0.0 in flt32_t
- *
- *  Register pressure = 4
- *
- *  \Output
- *  xE  : r25 Sign:Exponent<7..1>
- *  xM0 : r24 Exponent<0>:Mantissa<22..16>
- *  xM1 : r23 Mantissa<15..8>
- *  xM2 : r22 Mantissa<7..0>
- ********************************************************************************/
-ENTRY	__fp_zero
-	clt
-/********************************************************************************
- *  __fp_szero() return 0.0 with sign bit in flt32_t
- *
- *  Register pressure = 4
- *
- *  \Input
- *  xS  : T sign of result
- *
- *  \Output
- *  xE  : r25 Sign:Exponent<7..1>
- *  xM0 : r24 Exponent<0>:Mantissa<22..16>
- *  xM1 : r23 Mantissa<15..8>
- *  xM2 : r22 Mantissa<7..0>
- ********************************************************************************/
-ENTRY   __fp_szero
-	clr	xM2
-	clr	xM1
-	X_movw	xM0, xM2
-	bld	xE, 7
-	ret
-ENDFUNC
+/* This port correponds to the "-W 0x20,-" command line option. */
+#define special_output_port (*((volatile char *)0x20))
+/* This port correponds to the "-R 0x22,-" command line option. */
+#define special_input_port (*((volatile char *)0x22))
+
+const char* const test = "hello world!";
+
+extern "C" {
+  double __mulsf3(double, double);
+  double __addsf3(double, double);
+}
+
+int main()
+{
+  double a = 1.0;
+  double b = 1.0;
+  double c = __mulsf3(a, b);
+  double d = __addsf3(a, b);
+  
+  for (uint8_t i = 0; i < sizeof(test); i++) {
+    special_output_port = test[i];
+  }
+}

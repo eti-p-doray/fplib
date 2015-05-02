@@ -28,108 +28,28 @@
    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
    POSSIBILITY OF SUCH DAMAGE. */
 
-/* $Id: fp_zero.S 1174 2007-01-14 15:13:54Z dmix $ */
+/* $Id: muldf3x.S 1174 2015-01-14 15:13:54Z dmix $ */
 
 #include "fp32def.h"
 #include "asmdef.h"
 
-/********************************************************************************
- *  Operand A is inf or NaN.
- *
- *  Register pressure = 5
- *
- *  \Input - Output
- *  xE   : r25  Exponent of x
- *  xM0  : r24  Mantissa<31..24>
- *  xM1  : r23  Mantissa<23..16>
- *  xM2  : r22  Mantissa<15..8>
- *  xM3  : r27  Mantissa<7..0>
- *  xS  : T Sign of x
- ********************************************************************************/
-ENTRY _fp_ml_AnonFinite:
-  /*
-  if (bE == 0) {
-    return NaN ; // inf * 0 = NaN
-  }
-  */
-  tst bE;
-  breq  90;
-    rjmp  _U(__fp_nan);
-90:
-
-  /*
-  if (bE == 0xff) {
-    branch ABnonFinite
-  }
-  */
-  cpi bE, 0xff;
-  breq  __fp_ml_ABnonFinite;
-
-  /*else {
-    return (a.sign ^ b.sign) * inf;
-  }
-  */
-  rjmp  _U(__fp_nonFinite)
-ENDFUNC
-
+FUNCTION  __mulsf3x
 
 /********************************************************************************
- *  Operand B is inf or NaN.
+ *  Answer is szero
  *
- *  Register pressure = 5
+ *  \Input
+ *  xS  : T sign of result
  *
- *  \Input - Output
- *  xE   : r25  Exponent of x
- *  xM0  : r24  Mantissa<31..24>
- *  xM1  : r23  Mantissa<23..16>
- *  xM2  : r22  Mantissa<15..8>
- *  xM3  : r27  Mantissa<7..0>
- *  xS  : T Sign of x
+ *  \Output
+ *  xE  : r25 Exponent<7..0>
+ *  xM0 : r24 1:Mantissa<29..22>
+ *  xM1 : r23 Mantissa<21..15>
+ *  xM2 : r22 Mantissa<14..7>
+ *  xM3 : r22 Sign:Mantissa<6..0>
  ********************************************************************************/
-ENTRY __fp_ml_BnonFinite:
-  /*
-  if (bE == 0) {
-    ret ; // inf * 0 = NaN
-  }
-  */
-  tst aE;
-  breq  A0
-    rjmp  _U(__fp_nan);
-A0:
-
-  /*else {
-    return (a.sign ^ b.sign) * b;
-  }
-  */
-  X_movw  xM2,  bM2;
-  mov   xM1,  bM1;
-  rjmp  _U(__fp_nonFinite)
-ENDFUNC
-
-/********************************************************************************
- *  Both operand A and B are inf or NaN.
- *
- *  Register pressure = 5
- *
- *  \Input - Output
- *  xE   : r25  Exponent of x
- *  xM0  : r24  Mantissa<31..24>
- *  xM1  : r23  Mantissa<23..16>
- *  xM2  : r22  Mantissa<15..8>
- *  xM3  : r27  Mantissa<7..0>
- *  xS  : T Sign of x
- ********************************************************************************/
-ENTRY __fp_ml_ABnonFinite:
-  /*
-  xM = aM || bM; // if any NaN, it will end up in result
-  */
-  or  aM2,  bM2;
-  or  aM1,  bM1;
-  or  aM0,  bM0;
-
-  rjmp  _U(__fp_nonFinite); return (a.sign ^ b.sign) * b;
-ENDFUNC
-
+__fp_ml_szero:
+  rjmp  _U(__fp_splszero);
 
 /********************************************************************************
  *  Multiplication of 2 splflt40_t
@@ -149,10 +69,10 @@ ENDFUNC
  *  aM2 : r22 Mantissa<14..7>
  *  aM3 : r27 Sign:Mantissa<6..0>
  *
- *  bE  : r25 Exponent<7..0>
- *  bM0 : r24 1:Mantissa<29..23>
- *  bM1 : r23 Mantissa<22..15>
- *  bM2 : r22 Mantissa<14..7>
+ *  bE  : r21 Exponent<7..0>
+ *  bM0 : r20 1:Mantissa<29..23>
+ *  bM1 : r19 Mantissa<22..15>
+ *  bM2 : r18 Mantissa<14..7>
  *  bM3 : r26 Sign:Mantissa<6..0>
  *
  *  \Output
@@ -184,8 +104,8 @@ ENTRY   __mulsf3x
    *  # cycles = 5
    *
    *  \Input
-   *  aM3  : r   Mantissa[6..0]:Sign of a
-   *  bM3  : r   Mantissa[6..0]:Sign of b
+   *  aM3 : r Sign:Mantissa<6..0> of a
+   *  bM3 : r Sign:Mantissa<6..0> of b
    *
    *  \Output
    *  xS  : T  Sign of x
@@ -198,45 +118,7 @@ ENTRY   __mulsf3x
   rol r0;
   lsr bM3;
   adc r0, r1;
-  bst r0, 0;
-
-
-  /********************************************************************************
-   * Register allocation
-   *  Register pressure = 2
-   *  stack size = 0
-   *  aE  : r25
-   *  bE  : r21
-   ********************************************************************************/
-  /********************************************************************************
-   *  Check for non finite operands (inf, NaN)
-   *
-   *  # cycles = 4 typical
-   *
-   *  \Input
-   *  aE  : d   Exponent[7..0] of a
-   *  bE  : d   Exponent[7..0] of b
-   *
-   *  \Output
-   *  xE  : +r(aE)  Exponent of x
-   ********************************************************************************/
-
-  /*
-  if (aE == 0xff) {
-    branch _fp_ml_AnonFinite;
-  }
-  */
-  cpi aE, 0xff;
-  breq  __fp_ml_AnonFinite;
-
-  /*
-  if (bE == 0xff) {
-    branch _fp_ml_BnonFinite;
-  }
-  */
-  cpi bE, 0xff;
-  breq  __fp_ml_BnonFinite;
-
+  bst r0, 7;
 
   /********************************************************************************
    * Register allocation
@@ -244,22 +126,43 @@ ENTRY   __mulsf3x
    *  stack size = 0
    *  aE  : r25
    *  bE  : r21
+   *  xE0 : r25
+   *  xE1 : r21
    ********************************************************************************/
+  #define xE0 r25
+  #define xE1 r21
   /********************************************************************************
    *  Exponent part of result calculation for multiplication
+   *  zero is detected
    *
-   *  # cycles = 2
+   *  # cycles = 6
    *
    *  \Input
    *  aE  : d   Exponent<7..0> of a
    *  bE  : d   Exponent<7..0> of b
    *
    *  \Output
-   *  xE0  : +r(aE)  Exponent of x
+   *  xE1  : +r(bE)  Exponent<15..8> of x
+   *  xE0  : +r(aE)  Exponent<7..0> of x
+   *
+   *  \Clobber
+   *  r0
+   *  r1
    ********************************************************************************/
 
-  add aE0,  bE; xE <- aE + bE
-  adc aE1,  r1;
+  #if	defined(__AVR_ENHANCED__) && __AVR_ENHANCED__
+    mul aE, bE; if (aE == 0 || bE == 0)
+    breq  __fp_ml_szero;
+  #else	/* to __AVR_ENHANCED__	*/
+    tst aE
+    breq  __fp_ml_szero;
+    tst bE
+    breq  __fp_ml_szero;
+  #endif	/* not __AVR_ENHANCED__	*/
+
+  add xE0,  bE; xE <- aE + bE
+  clr xE1;
+  adc xE1,  xE1;
 
   #if	defined(__AVR_ENHANCED__) && __AVR_ENHANCED__
     /********************************************************************************
@@ -279,8 +182,10 @@ ENTRY   __mulsf3x
      *  xM3 : r27
      *  zero  : r31
      ********************************************************************************/
+    #undef  xM2
     #define xM2 r30 
     clr xM2; xM2 <- 0
+    #undef  zero
     #define zero  r31
     clr zero; zero <- 0
     /********************************************************************************
@@ -334,7 +239,9 @@ ENTRY   __mulsf3x
      *  xM3 : r27
      *  zero  : r26
      ********************************************************************************/
+    #undef  xM1
     #define xM1 r31
+    #undef  zero
     #define zero  r26
     clr zero;
     /********************************************************************************
@@ -398,10 +305,11 @@ ENTRY   __mulsf3x
      *  xM2 : r30
      *  xM3 : r27
      *  zero  : r26
-     ********************************************************************************/
+     **************************************************************************/
+    #undef xM0
     #define xM0 r18
     clr xM0;
-    /********************************************************************************
+    /***************************************************************************
      *  Mantissa multiplication of a and b
      *  xM0:xM1:xM2:xM3 = aM0:aM1:aM2:aM3 * bM0:bM1:bM2:bM3
      *
@@ -427,7 +335,7 @@ ENTRY   __mulsf3x
      *  \Clobber
      *  r0
      *  r1
-     ********************************************************************************/
+     **************************************************************************/
 
     mul aM1,  bM1;
     add xM3,  r0;
@@ -469,8 +377,10 @@ ENTRY   __mulsf3x
      ********************************************************************************/
     #define tmpbM0  r0
     mov  tmpbM0, bM0
+    #undef  xM2
     #define xM2 r30
     clr  xM2
+    #undef  xM3
     #define xM3 r31
     clr  xM3
     /********************************************************************************
@@ -528,11 +438,13 @@ ENTRY   __mulsf3x
      *  xM2 : r30
      *  xM3 : r27
      ********************************************************************************/
-     mov  r27,  xM3
-     #define  xM3 r27
-     mov  bM0,  tmpbM0
-     #define  xM1
-     clr  xM1
+    mov  r27,  xM3
+    #undef xM3
+    #define  xM3 r27
+    mov  bM0,  tmpbM0
+    #undef xM1
+    #define  xM1  r23
+    clr  xM1
     /********************************************************************************
      *  Mantissa multiplication of a and b
      *  xM1:xM2:xM3 += aM2*bM0:bM1
@@ -587,9 +499,12 @@ ENTRY   __mulsf3x
      *  xM2 : r30
      *  xM3 : r27
      ********************************************************************************/
+    #undef  bM0
     #define bM0 r19
+    #undef  bM1
     #define bM1 r20
     mov  bM0,  tmpbM0
+    #undef  xM0
     #define xM0 r22
     clr  xM0
     /********************************************************************************
@@ -645,9 +560,13 @@ ENTRY   __mulsf3x
      *  xM2 : r30
      *  xM3 : r27
      ********************************************************************************/
+    #undef  bM0
     #define bM0 r18
+    #undef  bM1
     #define bM1 r19
+    #undef  bM2
     #define bM2 r20
+    #undef  xM0
     #define xM0 r22
     /********************************************************************************
      *  Mantissa multiplication of a and b
@@ -701,9 +620,12 @@ ENTRY   __mulsf3x
    *  xM3 : r27
    ********************************************************************************/
   X_movw  r22,  xM2
+  #undef  xM2
   #define xM2 r22
+  #undef  xM1
   #define xM1 r23
   mov   r24,  xM0
+  #undef  xM0
   #define xM0 r24
   /********************************************************************************
    *  Renormalization or denormalization of Mantissa
@@ -713,7 +635,7 @@ ENTRY   __mulsf3x
    *  \Input - Output
    *  xE1 : d  Exponent<15..8>
    *  xE0 : d  Exponent<7..0>
-   *  xM0 : r  Mantissa<31..24>
+   *  xM0 : d  Mantissa<31..24>
    *  xM1 : r  Mantissa<23..16>
    *  xM2 : r  Mantissa<15..8>
    *  xM3 : r  Mantissa<7..0>
@@ -721,16 +643,13 @@ ENTRY   __mulsf3x
 
   subi	xE0, lo8(127); xE -= 126 (but we use 127 for compare conviniency)
 	sbci	xE1, hi8(127)
-
   ; if (xE == 1)
   //breq  14; normalisation is not possible : but can be handled anyway in 81
   ; if (xE >= 1)
   brcc	81f
     ; denormalization is needed
     cpi xM0,  lo8(-24); if (xE < -24)
-    brlt	80
-      rjmp  _U(__fp_szero); return s0.0
-   80:
+    brge  __fp_ml_szero;  return s0.0
     /*
     while (xE < 1) {
       xM <<= 1;
@@ -743,9 +662,9 @@ ENTRY   __mulsf3x
     ror xM2;
     ror xM3;
     inc xE0;
-    brne  80;
+    brne  80b;
     inc xE0;
-    rjmp  85;
+    rjmp  85f;
 
 81:
   ; if (xE >= 255)
@@ -760,22 +679,21 @@ ENTRY   __mulsf3x
   }
   */
   tst xM0
-  brmi  84
+  brmi  84f
 83:
     subi  xE0, 1;
-    brlo  84;
+    brlo  84f;
     lsl xM3;
     rol xM2;
     rol xM1;
     rol xM0;
-    brpl  83;
+    brpl  83b;
 84:
-  subi  xE0,  -2
+  subi  xE0,  -2;
 85:
 
   ret;
 ENDFUNC
-
 
 /********************************************************************************
  *  Answer is inf
@@ -784,12 +702,13 @@ ENDFUNC
  *  xS  : T sign of result
  *
  *  \Output
- *  xE  : r25 Sign:Exponent<7..1>
- *  xM0 : r24 Exponent<0>:Mantissa<22..16>
- *  xM1 : r23 Mantissa<15..8>
- *  xM2 : r22 Mantissa<7..0>
+ *  xE  : r25 Exponent<7..0>
+ *  xM0 : r24 1:Mantissa<29..22>
+ *  xM1 : r23 Mantissa<21..15>
+ *  xM2 : r22 Mantissa<14..7>
+ *  xM3 : r22 Sign:Mantissa<6..0>
  ********************************************************************************/
-ENTRY __fp_ml_inf:
-  rjmp  _U(__fp_inf);
-ENDFUNC
+__fp_ml_inf:
+  rjmp  _U(__fp_splinf);
+
 

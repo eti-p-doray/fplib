@@ -34,20 +34,21 @@
 #include "asmdef.h"
 
 /********************************************************************************
- *  __fp_zero() return 0.0 in flt32_t
+ *  __fp_splzero() return 0.0 in splflt40_t
  *
  *  Register pressure = 4
  *
  *  \Output
- *  xE  : r25 Sign:Exponent<7..1>
- *  xM0 : r24 Exponent<0>:Mantissa<22..16>
- *  xM1 : r23 Mantissa<15..8>
- *  xM2 : r22 Mantissa<7..0>
+ *  xE  : r25 Exponent<7..0>
+ *  xM0 : r24 1:Mantissa<29..21>
+ *  xM1 : r23 Mantissa<21..15>
+ *  xM2 : r22 Mantissa<14..7>
+ *  xM3 : r27 Sign:Mantissa<6..0>
  ********************************************************************************/
-ENTRY	__fp_zero
+ENTRY	__fp_splzero
 	clt
 /********************************************************************************
- *  __fp_szero() return 0.0 with sign bit in flt32_t
+ *  __fp_splszero() return 0.0 with sign bit in splflt40_t
  *
  *  Register pressure = 4
  *
@@ -55,15 +56,18 @@ ENTRY	__fp_zero
  *  xS  : T sign of result
  *
  *  \Output
- *  xE  : r25 Sign:Exponent<7..1>
- *  xM0 : r24 Exponent<0>:Mantissa<22..16>
- *  xM1 : r23 Mantissa<15..8>
- *  xM2 : r22 Mantissa<7..0>
+ *  xE  : r25 Exponent<7..0>
+ *  xM0 : r24 1:Mantissa<29..21>
+ *  xM1 : r23 Mantissa<21..15>
+ *  xM2 : r22 Mantissa<14..7>
+ *  xM3 : r27 Sign:Mantissa<6..0>
  ********************************************************************************/
-ENTRY   __fp_szero
-	clr	xM2
+ENTRY   __fp_splszero
+	clr	xM3
+  clr xM2
 	clr	xM1
-	X_movw	xM0, xM2
-	bld	xE, 7
+  ldi xM0,  0x80
+	clr	xE
+	bld	xM3, 7
 	ret
 ENDFUNC
