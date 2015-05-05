@@ -160,7 +160,7 @@ ENTRY   __mulsf3x
     breq  __fp_ml_szero;
   #endif	/* not __AVR_ENHANCED__	*/
 
-  add xE0,  bE; xE <- aE + bE
+  add xE0,  aE; bE <- aE + bE
   clr xE1;
   adc xE1,  xE1;
 
@@ -355,6 +355,8 @@ ENTRY   __mulsf3x
     mul aM0,  bM0; r1:r0 = aM0 * bM0
     add xM1,  r0;
     adc xM0,  r1;
+
+    clr r1
 
 
   #else	/* to __AVR_ENHANCED__	*/
@@ -643,8 +645,6 @@ ENTRY   __mulsf3x
 
   subi	xE0, lo8(127); xE -= 126 (but we use 127 for compare conviniency)
 	sbci	xE1, hi8(127)
-  ; if (xE == 1)
-  //breq  14; normalisation is not possible : but can be handled anyway in 81
   ; if (xE >= 1)
   brcc	81f
     ; denormalization is needed
@@ -663,8 +663,7 @@ ENTRY   __mulsf3x
     ror xM3;
     inc xE0;
     brne  80b;
-    inc xE0;
-    rjmp  85f;
+    rjmp  84f;
 
 81:
   ; if (xE >= 255)
@@ -682,17 +681,19 @@ ENTRY   __mulsf3x
   brmi  84f
 83:
     subi  xE0, 1;
-    brlo  84f;
+    brlo  85f;
     lsl xM3;
     rol xM2;
     rol xM1;
     rol xM0;
     brpl  83b;
 84:
-  subi  xE0,  -2;
-85:
-
+  subi  xE0,  -1;
   ret;
+
+85:
+  subi  xE0,  -2;
+  ret
 ENDFUNC
 
 /********************************************************************************

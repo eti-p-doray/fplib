@@ -51,19 +51,19 @@
  ******************************************************************************/
 .macro  FP_ROUNDX
   lsl xM3;
-  brne  __fp_round0;
-  adc xM2,  r1;
-  adc xM1,  r1;
-  adc xM0,  r1;
-  adc xE, r1;
-  brvs  __fp_rd_inf;
+  brcc  __fp_round1;
+  breq  __fp_round2;
+__fp_round0:
+  subi xM2,  -1;
+  sbci xM1,  -1;
+  sbci xM0,  -1;
+  sbci xE,  -1;
+__fp_round1:
   ret
 
-__fp_rd_inf:
-  rjmp _U(__fp_inf);
-
-__fp_round0:
-  cbr xM2, (1 << 0); ties to even
+__fp_round2:
+  sbrc  xM3,  0
+    rjmp  __fp_round0
   ret
 .endm
 

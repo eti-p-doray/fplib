@@ -32,26 +32,40 @@
 
 #include <stdint.h>
 
-/* This port correponds to the "-W 0x20,-" command line option. */
+
 #define special_output_port (*((volatile char *)0x20))
-/* This port correponds to the "-R 0x22,-" command line option. */
 #define special_input_port (*((volatile char *)0x22))
 
-const char* const test = "hello world!";
-
 extern "C" {
-  double __mulsf3(double, double);
-  double __addsf3(double, double);
+  uint32_t __mulsf3(uint32_t, uint32_t);
+  uint32_t __addsf3(uint32_t, uint32_t);
 }
 
 int main()
 {
-  double a = 1.0;
-  double b = 1.0;
-  double c = __mulsf3(a, b);
-  double d = __addsf3(a, b);
-  
-  for (uint8_t i = 0; i < sizeof(test); i++) {
-    special_output_port = test[i];
+  uint16_t n = special_input_port << 16;
+  n += special_input_port;
+
+  for (uint16_t i = 0; i < n; ++i)
+  {
+    uint32_t a = 0;
+    for (uint8_t j = 0; j < 4; ++j)
+    {
+      a += special_input_port << (j*8);
+    }
+    for (int j = 0; j < n; ++j)
+    {
+      uint32_t b = 0;
+      for (uint8_t k = 0; k < 4; ++k)
+      {
+        b += special_input_port << (k*8);
+      }
+      uint32_t r = __mulsf3(a, b);
+      for (uint8_t k = 0; k < 4; ++k)
+      {
+        special_output_port = (r >> (k*8)) & 0xff;
+      }
+    }
   }
+  return 0;
 }
